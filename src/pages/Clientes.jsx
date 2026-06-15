@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Plus, Search, Phone, MapPin, Pencil, Trash2, X, User, Loader2 } from 'lucide-react'
+import { Plus, Search, Phone, MapPin, Pencil, Trash2, X, User, Loader2, Tag, ChevronRight } from 'lucide-react'
 
 const ZONAS = ['Belgrano', 'Barrio Obrero', 'Centro', 'Norte', 'Sur', 'Otra']
-const EMPTY = { nombre: '', telefono: '', direccion: '', zona: 'Centro', notas: '' }
+const EMPTY = { nombre: '', telefono: '', direccion: '', zona: 'Centro', notas: '', descuentoGeneral: 0 }
 
 export default function Clientes() {
   const { state, addCliente, updateCliente, deleteCliente } = useApp()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [busqueda, setBusqueda] = useState('')
   const [modal, setModal] = useState(null)
@@ -25,7 +26,7 @@ export default function Clientes() {
   )
 
   function abrirNuevo() { setForm(EMPTY); setErrors({}); setApiError(''); setModal({ mode: 'new' }) }
-  function abrirEditar(c) { setForm({ ...c }); setErrors({}); setApiError(''); setModal({ mode: 'edit' }) }
+  function abrirEditar(e, c) { e.stopPropagation(); setForm({ ...c, descuentoGeneral: c.descuentoGeneral || 0 }); setErrors({}); setApiError(''); setModal({ mode: 'edit' }) }
 
   function validar() {
     const e = {}
@@ -45,7 +46,8 @@ export default function Clientes() {
     finally { setSaving(false) }
   }
 
-  async function eliminar(id) {
+  async function eliminar(e, id) {
+    e.stopPropagation()
     if (!confirm('¿Eliminar este cliente?')) return
     try { await deleteCliente(id) } catch (err) { alert('Error: ' + err.message) }
   }
@@ -79,7 +81,8 @@ export default function Clientes() {
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
           {filtrados.map(c => (
-            <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-shadow">
+            <div key={c.id} onClick={() => navigate(`/clientes/${c.id}`)}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-shadow cursor-pointer">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0">
@@ -87,12 +90,18 @@ export default function Clientes() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900 dark:text-white truncate">{c.nombre}</p>
-                    <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{c.zona}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{c.zona}</span>
+                      {c.descuentoGeneral > 0 && (
+                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex items-center gap-0.5"><Tag size={10} />{c.descuentoGeneral}%</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1 shrink-0 ml-2">
-                  <button onClick={() => abrirEditar(c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"><Pencil size={15} className="text-gray-500 dark:text-gray-400" /></button>
-                  <button onClick={() => eliminar(c.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={15} className="text-red-400" /></button>
+                  <button onClick={e => abrirEditar(e, c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"><Pencil size={15} className="text-gray-500 dark:text-gray-400" /></button>
+                  <button onClick={e => eliminar(e, c.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={15} className="text-red-400" /></button>
+                  <ChevronRight size={15} className="text-gray-300 dark:text-gray-600 mt-1.5" />
                 </div>
               </div>
               <div className="mt-3 space-y-1">
@@ -117,11 +126,16 @@ export default function Clientes() {
               <Field label="Nombre / Razón social *" error={errors.nombre}><input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} className={inp(errors.nombre)} placeholder="Ej: Almacén Don Pedro" /></Field>
               <Field label="Teléfono *" error={errors.telefono}><input value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} className={inp(errors.telefono)} placeholder="Ej: 0381-4521234" /></Field>
               <Field label="Dirección"><input value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} className={inp()} placeholder="Ej: Av. Belgrano 1250" /></Field>
-              <Field label="Zona">
-                <select value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))} className={inp()}>
-                  {ZONAS.map(z => <option key={z}>{z}</option>)}
-                </select>
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Zona">
+                  <select value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))} className={inp()}>
+                    {ZONAS.map(z => <option key={z}>{z}</option>)}
+                  </select>
+                </Field>
+                <Field label="Descuento general (%)">
+                  <input type="number" min="0" max="100" value={form.descuentoGeneral} onChange={e => setForm(f => ({ ...f, descuentoGeneral: Number(e.target.value) }))} className={inp()} placeholder="0" />
+                </Field>
+              </div>
               <Field label="Notas"><textarea value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} className={inp() + ' resize-none'} rows={2} placeholder="Ej: Paga los viernes..." /></Field>
             </div>
             <div className="flex gap-3 p-5 pt-0">

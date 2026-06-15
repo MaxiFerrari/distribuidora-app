@@ -6,10 +6,13 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Clientes from './pages/Clientes'
+import ClienteDetalle from './pages/ClienteDetalle'
 import NuevoPedido from './pages/NuevoPedido'
 import Pedidos from './pages/Pedidos'
 import DetallePedido from './pages/DetallePedido'
+import EditarPedido from './pages/EditarPedido'
 import Inventario from './pages/Inventario'
+import Estadisticas from './pages/Estadisticas'
 import { Loader2 } from 'lucide-react'
 
 function ProtectedRoutes() {
@@ -22,10 +25,13 @@ function ProtectedRoutes() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="clientes" element={<Clientes />} />
+          <Route path="clientes/:id" element={<ClienteDetalle />} />
           <Route path="pedidos" element={<Pedidos />} />
           <Route path="pedidos/nuevo" element={<NuevoPedido />} />
           <Route path="pedidos/:id" element={<DetallePedido />} />
+          <Route path="pedidos/:id/editar" element={<EditarPedido />} />
           <Route path="inventario" element={<Inventario />} />
+          <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
       </Routes>
     </AppProvider>

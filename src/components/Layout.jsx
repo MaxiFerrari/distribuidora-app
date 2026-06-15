@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon } from 'lucide-react'
-import { useState } from 'react'
+import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import BusquedaGlobal from './BusquedaGlobal'
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -10,6 +11,7 @@ const NAV = [
   { to: '/pedidos/nuevo', label: 'Nuevo Pedido', icon: ShoppingCart, highlight: true },
   { to: '/pedidos', label: 'Historial', icon: ClipboardList },
   { to: '/inventario', label: 'Inventario', icon: Package },
+  { to: '/estadisticas', label: 'Estadísticas', icon: BarChart2 },
 ]
 
 function NavItem({ to, label, icon: Icon, end, highlight, onClick }) {
@@ -32,8 +34,17 @@ function NavItem({ to, label, icon: Icon, end, highlight, onClick }) {
 
 export default function Layout() {
   const [open, setOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const { user, signOut } = useAuth()
   const { dark, toggle } = useTheme()
+
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setSearchOpen(true) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -50,6 +61,17 @@ export default function Layout() {
             </div>
           </div>
         </div>
+
+        {/* Search button */}
+        <div className="px-3 pt-3">
+          <button onClick={() => setSearchOpen(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <Search size={14} />
+            <span className="flex-1 text-left">Buscar...</span>
+            <kbd className="text-xs bg-white dark:bg-gray-600 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 text-gray-400">⌘K</kbd>
+          </button>
+        </div>
+
         <nav className="flex-1 p-3 space-y-1">
           {NAV.map(props => <NavItem key={props.to} {...props} />)}
         </nav>
@@ -73,6 +95,9 @@ export default function Layout() {
           <span className="font-bold text-gray-900 dark:text-white text-sm">Distribuidora</span>
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={() => setSearchOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
+            <Search size={18} />
+          </button>
           <button onClick={toggle} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -103,6 +128,8 @@ export default function Layout() {
       <main className="flex-1 overflow-auto md:pt-0 pt-14">
         <Outlet />
       </main>
+
+      {searchOpen && <BusquedaGlobal onClose={() => setSearchOpen(false)} />}
     </div>
   )
 }
