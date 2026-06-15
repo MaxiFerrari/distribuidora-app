@@ -1,0 +1,61 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { AppProvider } from './context/AppContext'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Clientes from './pages/Clientes'
+import NuevoPedido from './pages/NuevoPedido'
+import Pedidos from './pages/Pedidos'
+import DetallePedido from './pages/DetallePedido'
+import Inventario from './pages/Inventario'
+import { Loader2 } from 'lucide-react'
+
+function ProtectedRoutes() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-blue-500" />
+      </div>
+    )
+  }
+
+  if (!user) return <Navigate to="/login" replace />
+
+  return (
+    <AppProvider>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="clientes" element={<Clientes />} />
+          <Route path="pedidos" element={<Pedidos />} />
+          <Route path="pedidos/nuevo" element={<NuevoPedido />} />
+          <Route path="pedidos/:id" element={<DetallePedido />} />
+          <Route path="inventario" element={<Inventario />} />
+        </Route>
+      </Routes>
+    </AppProvider>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<PublicRoute />} />
+          <Route path="/*" element={<ProtectedRoutes />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
+
+function PublicRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 size={32} className="animate-spin text-blue-500" /></div>
+  if (user) return <Navigate to="/" replace />
+  return <Login />
+}
