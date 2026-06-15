@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -9,25 +9,29 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/pedidos/nuevo', label: 'Nuevo Pedido', icon: ShoppingCart, highlight: true },
-  { to: '/pedidos', label: 'Historial', icon: ClipboardList },
+  { to: '/pedidos', label: 'Historial', icon: ClipboardList, end: true },
   { to: '/inventario', label: 'Inventario', icon: Package },
   { to: '/estadisticas', label: 'Estadísticas', icon: BarChart2 },
 ]
 
-function NavItem({ to, label, icon: Icon, end, highlight, onClick }) {
+function NavItem({ to, label, icon: Icon, end, highlight, onClick, collapsed }) {
   return (
     <NavLink to={to} end={end} onClick={onClick}
+      title={collapsed ? label : undefined}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-          highlight
-            ? 'bg-blue-600 text-white hover:bg-blue-700'
-            : isActive
-            ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+        `flex items-center rounded-lg text-sm font-medium transition-all duration-200 ${
+          collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+        } ${
+          isActive
+            ? 'bg-blue-600 text-white'
+            : highlight
+            ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-100'
         }`
       }
     >
-      <Icon size={18} />{label}
+      <Icon size={18} className="shrink-0" />
+      {!collapsed && label}
     </NavLink>
   )
 }
@@ -35,6 +39,7 @@ function NavItem({ to, label, icon: Icon, end, highlight, onClick }) {
 export default function Layout() {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
   const { user, signOut } = useAuth()
   const { dark, toggle } = useTheme()
 
@@ -46,42 +51,83 @@ export default function Layout() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  function toggleCollapse() {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem('sidebar-collapsed', next)
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex flex-col w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shrink-0">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
+      <aside className={`hidden md:flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shrink-0 transition-all duration-300 ${collapsed ? 'w-16' : 'w-56'}`}>
+        {/* Header */}
+        <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${collapsed ? 'p-3 justify-center' : 'p-4 justify-between'}`}>
+          {!collapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                <ShoppingCart size={16} className="text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">Distribuidora</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]">{user?.email}</p>
+              </div>
+            </div>
+          )}
+          {collapsed && (
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <ShoppingCart size={16} className="text-white" />
             </div>
-            <div>
-              <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">Distribuidora</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]">{user?.email}</p>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Search button */}
-        <div className="px-3 pt-3">
-          <button onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            <Search size={14} />
-            <span className="flex-1 text-left">Buscar...</span>
-            <kbd className="text-xs bg-white dark:bg-gray-600 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 text-gray-400">⌘K</kbd>
-          </button>
-        </div>
+        {!collapsed && (
+          <div className="px-3 pt-3">
+            <button onClick={() => setSearchOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <Search size={14} />
+              <span className="flex-1 text-left">Buscar...</span>
+              <kbd className="text-xs bg-white dark:bg-gray-600 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-500 text-gray-400">⌘K</kbd>
+            </button>
+          </div>
+        )}
+        {collapsed && (
+          <div className="px-2 pt-3">
+            <button onClick={() => setSearchOpen(true)} title="Buscar (Ctrl+K)"
+              className="w-full flex items-center justify-center py-2 text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <Search size={16} />
+            </button>
+          </div>
+        )}
 
-        <nav className="flex-1 p-3 space-y-1">
-          {NAV.map(props => <NavItem key={props.to} {...props} />)}
+        {/* Nav */}
+        <nav className={`flex-1 p-2 space-y-1`}>
+          {NAV.map(props => <NavItem key={props.to} {...props} collapsed={collapsed} />)}
         </nav>
-        <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
-          <button onClick={toggle} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+
+        {/* Footer */}
+        <div className={`border-t border-gray-200 dark:border-gray-700 space-y-1 ${collapsed ? 'p-2' : 'p-3'}`}>
+          <button onClick={toggle} title={dark ? 'Modo claro' : 'Modo oscuro'}
+            className={`w-full flex items-center py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'}`}>
             {dark ? <Sun size={15} /> : <Moon size={15} />}
-            {dark ? 'Modo claro' : 'Modo oscuro'}
+            {!collapsed && (dark ? 'Modo claro' : 'Modo oscuro')}
           </button>
-          <button onClick={signOut} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 rounded-lg transition-colors">
-            <LogOut size={15} /> Cerrar sesión
+          <button onClick={signOut} title="Cerrar sesión"
+            className={`w-full flex items-center py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'}`}>
+            <LogOut size={15} />
+            {!collapsed && 'Cerrar sesión'}
+          </button>
+          {!collapsed && (
+            <p className="text-center text-xs text-gray-400 dark:text-gray-600 pt-1">
+              Un producto de <span className="font-semibold text-gray-500 dark:text-gray-500">BotHub</span>
+            </p>
+          )}
+
+          {/* Toggle collapse button */}
+          <button onClick={toggleCollapse} title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+            className={`w-full flex items-center py-2 text-xs text-gray-400 dark:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'}`}>
+            {collapsed ? <ChevronRight size={15} /> : <><ChevronLeft size={15} /><span>Colapsar</span></>}
           </button>
         </div>
       </aside>
@@ -113,7 +159,7 @@ export default function Layout() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-14 bottom-0 w-64 bg-white dark:bg-gray-800 shadow-xl flex flex-col">
             <nav className="flex-1 p-3 space-y-1">
-              {NAV.map(props => <NavItem key={props.to} {...props} onClick={() => setOpen(false)} />)}
+              {NAV.map(props => <NavItem key={props.to} {...props} onClick={() => setOpen(false)} collapsed={false} />)}
             </nav>
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <p className="text-xs text-gray-400 px-3 mb-1 truncate">{user?.email}</p>
