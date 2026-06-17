@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useEffect, useCallback } from 'r
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { useDistribuidora } from './DistribuidoraContext'
+import { useOffline } from './OfflineContext'
 
 const AppContext = createContext(null)
 
@@ -74,28 +75,70 @@ function normalizeNota(row) {
 export function AppProvider({ children }) {
   const { user } = useAuth()
   const { distribuidora } = useDistribuidora()
+  const { online, cacheData, getCachedData, createOfflinePedido } = useOffline()
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
 
   const loadData = useCallback(async () => {
     if (!user) return
     dispatch({ type: 'SET_LOADING', payload: true })
+
     try {
-      const [{ data: clientes }, { data: productos }, { data: pedidosRaw }, { data: itemsRaw }, { data: notasRaw }] = await Promise.all([
-        supabase.from('clientes').select('*').order('nombre'),
-        supabase.from('productos').select('*').order('nombre'),
-        supabase.from('pedidos').select('*').order('created_at', { ascending: false }),
-        supabase.from('pedido_items').select('*'),
-        supabase.from('notas_credito').select('*').order('created_at', { ascending: false }),
-      ])
-      const pedidos = (pedidosRaw || []).map(p => normalizePedido(p, (itemsRaw || []).filter(i => i.pedido_id === p.id)))
-      dispatch({ type: 'SET_DATA', payload: {
-        clientes: (clientes || []).map(normalizeCliente),
-        productos: (productos || []).map(normalizeProducto),
-        pedidos,
-        notasCredito: (notasRaw || []).map(normalizeNota),
-      }})
-    } catch (err) { dispatch({ type: 'SET_ERROR', payload: err.message }) }
-  }, [user])
+      // Si está ONLINE, cargar de Supabase y cachear
+      if (online) {
+        const [{ data: clientes }, { data: productos }, { data: pedidosRaw }, { data: itemsRaw }, { data: notasRaw }] = await Promise.all([
+          supabase.from('clientes').select('*').order('nombre'),
+          supabase.from('productos').select('*').order('nombre'),
+          supabase.from('pedidos').select('*').order('created_at', { ascending: false }),
+          supabase.from('pedido_items').select('*'),
+          supabase.from('notas_credito').select('*').order('created_at', { ascending: false }),
+        ])
+
+        const pedidos = (pedidosRaw || []).map(p => normalizePedido(p, (itemsRaw || []).filter(i => i.pedido_id === p.id)))
+        const clientesNorm = (clientes || []).map(normalizeCliente)
+        const productosNorm = (productos || []).map(normalizeProducto)
+        const notasNorm = (notasRaw || []).map(normalizeNota)
+
+        // Cachear para uso offline
+        await cacheData(clientesNorm, productosNorm, pedidos)
+
+        dispatch({ type: 'SET_DATA', payload: {
+          clientes: clientesNorm,
+          productos: productosNorm,
+          pedidos,
+          notasCredito: notasNorm,
+        }})
+      }
+      // Si está OFFLINE, usar cache
+      else {
+        console.log('📦 Cargando datos desde cache offline...')
+        const cached = await getCachedData()
+        dispatch({ type: 'SET_DATA', payload: {
+          clientes: cached.clientes || [],
+          productos: cached.productos || [],
+          pedidos: cached.pedidos || [],
+          notasCredito: [],
+        }})
+      }
+    } catch (err) {
+      console.error('Error cargando datos:', err)
+      // Si falla al estar online, intentar cargar cache
+      if (online) {
+        try {
+          const cached = await getCachedData()
+          dispatch({ type: 'SET_DATA', payload: {
+            clientes: cached.clientes || [],
+            productos: cached.productos || [],
+            pedidos: cached.pedidos || [],
+            notasCredito: [],
+          }})
+        } catch {
+          dispatch({ type: 'SET_ERROR', payload: err.message })
+        }
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: err.message })
+      }
+    }
+  }, [user, online, cacheData, getCachedData])
 
   useEffect(() => {
     if (user) { loadData() }

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { DistribuidoraProvider } from './context/DistribuidoraContext'
+import { OfflineProvider } from './context/OfflineContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -43,9 +44,10 @@ function ProtectedRoutes() {
   if (!user) return <Navigate to="/login" replace />
   return (
     <DistribuidoraProvider>
-      <AppProvider>
-        <Routes>
-          <Route path="/" element={<Layout />}>
+      <OfflineProvider>
+        <AppProvider>
+          <Routes>
+            <Route path="/" element={<Layout />}>
           <Route index element={<OnboardingGate><Dashboard /></OnboardingGate>} />
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="clientes" element={<Clientes />} />
@@ -59,9 +61,10 @@ function ProtectedRoutes() {
           <Route path="admin" element={<Admin />} />
           <Route path="feedback" element={<Feedback />} />
           <Route path="*" element={<NotFound />} />
-        </Route>
-        </Routes>
-      </AppProvider>
+          </Route>
+          </Routes>
+        </AppProvider>
+      </OfflineProvider>
     </DistribuidoraProvider>
   )
 }

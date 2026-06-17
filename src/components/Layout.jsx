@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useDistribuidora } from '../context/DistribuidoraContext'
+import { useOffline } from '../context/OfflineContext'
 import BusquedaGlobal from './BusquedaGlobal'
 
 const NAV = [
@@ -44,6 +45,7 @@ export default function Layout() {
   const { user, signOut } = useAuth()
   const { dark, toggle } = useTheme()
   const { distribuidora, isSuperAdmin } = useDistribuidora()
+  const { online, syncing, pendingCount } = useOffline()
 
   useEffect(() => {
     function onKey(e) {
@@ -190,6 +192,33 @@ export default function Layout() {
       )}
 
       <main className="flex-1 overflow-auto md:pt-0 pt-14">
+        {/* Banner de estado de conexión */}
+        {!online && (
+          <div className="bg-red-500 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            Sin conexión - Modo Offline
+            {pendingCount > 0 && (
+              <span className="bg-red-600 px-2 py-0.5 rounded-full text-xs">
+                {pendingCount} pendiente{pendingCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
+        {syncing && (
+          <div className="bg-blue-500 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            Sincronizando datos...
+          </div>
+        )}
+
+        {online && pendingCount > 0 && !syncing && (
+          <div className="bg-orange-500 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            {pendingCount} pedido{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar
+          </div>
+        )}
+
         <Outlet />
       </main>
 
