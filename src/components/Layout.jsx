@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2, ChevronLeft, ChevronRight, Settings, MessageSquare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -123,6 +123,15 @@ export default function Layout() {
 
         {/* Footer */}
         <div className={`border-t border-gray-200 dark:border-gray-700 space-y-1 ${collapsed ? 'p-2' : 'p-3'}`}>
+          <NavLink to="/feedback" title="Enviar Feedback"
+            className={({ isActive }) => `w-full flex items-center py-2 text-sm rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'} ${
+              isActive
+                ? 'bg-blue-600 text-white'
+                : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+            }`}>
+            <MessageSquare size={15} />
+            {!collapsed && '💙 Dar Feedback'}
+          </NavLink>
           <button onClick={toggle} title={dark ? 'Modo claro' : 'Modo oscuro'}
             className={`w-full flex items-center py-2 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'}`}>
             {dark ? <Sun size={15} /> : <Moon size={15} />}

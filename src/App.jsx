@@ -18,6 +18,7 @@ import Onboarding from './pages/Onboarding'
 import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import Admin from './pages/Admin'
+import Feedback from './pages/Feedback'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
@@ -56,6 +57,7 @@ function ProtectedRoutes() {
           <Route path="inventario" element={<Inventario />} />
           <Route path="estadisticas" element={<Estadisticas />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="feedback" element={<Feedback />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         </Routes>
