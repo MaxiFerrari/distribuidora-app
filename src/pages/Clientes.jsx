@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Plus, Search, Phone, MapPin, Pencil, Trash2, X, User, Loader2, Tag, ChevronRight } from 'lucide-react'
+import { formatCurrency } from '../utils/helpers'
+import { exportToCSV, prepareClientesForCSV } from '../utils/csvExport'
+import { usePagination } from '../hooks/usePagination'
+import Pagination from '../components/Pagination'
+import { Plus, Search, Phone, MapPin, Pencil, Trash2, X, User, Loader2, Tag, ChevronRight, DollarSign, Download } from 'lucide-react'
+import ConfirmModal from '../components/ConfirmModal'
+import toast from 'react-hot-toast'
 
 const ZONAS = ['Belgrano', 'Barrio Obrero', 'Centro', 'Norte', 'Sur', 'Otra']
 const EMPTY = { nombre: '', telefono: '', direccion: '', zona: 'Centro', notas: '', descuentoGeneral: 0 }
@@ -16,6 +22,7 @@ export default function Clientes() {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [deleteModal, setDeleteModal] = useState(null)
 
   useEffect(() => { if (searchParams.get('nuevo')) abrirNuevo() }, [])
 
@@ -25,13 +32,39 @@ export default function Clientes() {
     c.telefono.includes(busqueda)
   )
 
+  const { paginatedItems, ...pagination } = usePagination(filtrados, 50)
+
   function abrirNuevo() { setForm(EMPTY); setErrors({}); setApiError(''); setModal({ mode: 'new' }) }
-  function abrirEditar(e, c) { e.stopPropagation(); setForm({ ...c, descuentoGeneral: c.descuentoGeneral || 0 }); setErrors({}); setApiError(''); setModal({ mode: 'edit' }) }
+  function abrirEditar(e, c) {
+    e.stopPropagation()
+    setForm({
+      id: c.id,
+      nombre: c.nombre,
+      telefono: c.telefono,
+      direccion: c.direccion,
+      zona: c.zona,
+      notas: c.notas,
+      descuentoGeneral: c.descuentoGeneral || 0
+    })
+    setErrors({})
+    setApiError('')
+    setModal({ mode: 'edit' })
+  }
 
   function validar() {
     const e = {}
     if (!form.nombre.trim()) e.nombre = 'Requerido'
-    if (!form.telefono.trim()) e.telefono = 'Requerido'
+
+    if (!form.telefono.trim()) {
+      e.telefono = 'Requerido'
+    } else {
+      // Validar formato argentino: debe tener al menos 10 dígitos
+      const digits = form.telefono.replace(/\D/g, '')
+      if (digits.length < 10) {
+        e.telefono = 'Debe tener al menos 10 dígitos'
+      }
+    }
+
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -46,10 +79,30 @@ export default function Clientes() {
     finally { setSaving(false) }
   }
 
-  async function eliminar(e, id) {
+  function eliminar(e, id) {
     e.stopPropagation()
-    if (!confirm('¿Eliminar este cliente?')) return
-    try { await deleteCliente(id) } catch (err) { alert('Error: ' + err.message) }
+    const cliente = state.clientes.find(c => c.id === id)
+    setDeleteModal({ id, nombre: cliente.nombre })
+  }
+
+  async function confirmarEliminar() {
+    try {
+      await deleteCliente(deleteModal.id)
+      toast.success('Cliente eliminado')
+      setDeleteModal(null)
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function exportarCSV() {
+    try {
+      const data = prepareClientesForCSV(state.clientes)
+      exportToCSV(data, `clientes-${new Date().toISOString().slice(0,10)}.csv`)
+      toast.success('Clientes exportados a CSV')
+    } catch (err) {
+      toast.error('Error al exportar: ' + err.message)
+    }
   }
 
   if (state.loading) return <Spin />
@@ -61,9 +114,14 @@ export default function Clientes() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Clientes</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{state.clientes.length} registrados</p>
         </div>
-        <button onClick={abrirNuevo} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
-          <Plus size={16} /> Agregar Cliente
-        </button>
+        <div className="flex gap-2">
+          <button onClick={exportarCSV} className="flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium px-4 py-2.5 rounded-xl transition-colors">
+            <Download size={16} /> Exportar CSV
+          </button>
+          <button onClick={abrirNuevo} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
+            <Plus size={16} /> Agregar Cliente
+          </button>
+        </div>
       </div>
 
       <div className="relative mb-5">
@@ -80,24 +138,37 @@ export default function Clientes() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
-          {filtrados.map(c => (
-            <div key={c.id} onClick={() => navigate(`/clientes/${c.id}`)}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-blue-700 dark:text-blue-400 font-bold">{c.nombre[0]}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 dark:text-white truncate">{c.nombre}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{c.zona}</span>
-                      {c.descuentoGeneral > 0 && (
-                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex items-center gap-0.5"><Tag size={10} />{c.descuentoGeneral}%</span>
-                      )}
+          {paginatedItems.map(c => {
+            const pedidosCliente = state.pedidos.filter(p => p.clienteId === c.id && p.estado !== 'cancelado')
+            const totalVentas = pedidosCliente.reduce((s,p) => s + p.total, 0)
+            const totalPagado = pedidosCliente.reduce((s,p) => s + (p.montoPagado || 0), 0)
+            const notasCredito = state.notasCredito.filter(n => n.clienteId === c.id).reduce((s,n) => s + n.monto, 0)
+            const saldoPendiente = totalVentas - totalPagado - notasCredito
+            const tieneDeuda = saldoPendiente > 0
+
+            return (
+              <div key={c.id} onClick={() => navigate(`/clientes/${c.id}`)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-shadow cursor-pointer">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center shrink-0">
+                      <span className="text-blue-700 dark:text-blue-400 font-bold">{c.nombre[0]}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">{c.nombre}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{c.zona}</span>
+                        {c.descuentoGeneral > 0 && (
+                          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex items-center gap-0.5"><Tag size={10} />{c.descuentoGeneral}%</span>
+                        )}
+                        {tieneDeuda && (
+                          <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full flex items-center gap-0.5 font-semibold">
+                            <DollarSign size={10} />{formatCurrency(saldoPendiente).replace('ARS', '').trim()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
                 <div className="flex gap-1 shrink-0 ml-2">
                   <button onClick={e => abrirEditar(e, c)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"><Pencil size={15} className="text-gray-500 dark:text-gray-400" /></button>
                   <button onClick={e => eliminar(e, c.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={15} className="text-red-400" /></button>
@@ -110,9 +181,12 @@ export default function Clientes() {
                 {c.notas && <p className="text-xs text-gray-400 dark:text-gray-500 italic mt-1">{c.notas}</p>}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
+
+      {filtrados.length > 50 && <div className="mt-4"><Pagination {...pagination} totalItems={filtrados.length} onNext={pagination.nextPage} onPrev={pagination.prevPage} /></div>}
 
       {modal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -146,6 +220,16 @@ export default function Clientes() {
             </div>
           </div>
         </div>
+      )}
+
+      {deleteModal && (
+        <ConfirmModal
+          title="Eliminar cliente"
+          message={`¿Estás seguro de eliminar a ${deleteModal.nombre}? Esta acción no se puede deshacer.`}
+          confirmText="Eliminar"
+          onConfirm={confirmarEliminar}
+          onCancel={() => setDeleteModal(null)}
+        />
       )}
     </div>
   )

@@ -1,7 +1,7 @@
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDateTime, isToday, isThisWeek } from '../utils/helpers'
 import { useNavigate } from 'react-router-dom'
-import { Plus, TrendingUp, Package, Users, ShoppingCart, AlertTriangle, Clock } from 'lucide-react'
+import { Plus, TrendingUp, Package, Users, ShoppingCart, AlertTriangle, Clock, DollarSign } from 'lucide-react'
 
 const ESTADO_BADGE = {
   pendiente: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -21,6 +21,11 @@ export default function Dashboard() {
   const productosStockBajo = state.productos.filter(p => p.stock <= p.stockMinimo)
   const recientes = state.pedidos.slice(0, 6)
 
+  // KPI de cobros pendientes
+  const pedidosNoCancelados = state.pedidos.filter(p => p.estado !== 'cancelado')
+  const totalCobrar = pedidosNoCancelados.reduce((s, p) => s + (p.total - (p.montoPagado || 0)), 0)
+  const pedidosConDeuda = pedidosNoCancelados.filter(p => p.total > (p.montoPagado || 0)).length
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -36,9 +41,10 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatCard icon={TrendingUp} color="blue" label="Ventas Hoy" value={formatCurrency(ventasHoy)} sub={`${pedidosHoy.length} pedido${pedidosHoy.length !== 1 ? 's' : ''}`} />
         <StatCard icon={ShoppingCart} color="green" label="Esta Semana" value={formatCurrency(ventasSemana)} sub={`${pedidosSemana.length} pedidos`} />
+        <StatCard icon={DollarSign} color="red" label="Por Cobrar" value={formatCurrency(totalCobrar)} sub={`${pedidosConDeuda} pedido${pedidosConDeuda !== 1 ? 's' : ''}`} onClick={() => navigate('/pedidos')} />
         <StatCard icon={Clock} color="yellow" label="Pendientes" value={pedidosPendientes.length} sub="por entregar" onClick={() => navigate('/pedidos')} />
         <StatCard icon={Users} color="purple" label="Clientes" value={state.clientes.length} sub="registrados" onClick={() => navigate('/clientes')} />
       </div>

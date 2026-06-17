@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatCurrency, formatDateTime } from '../utils/helpers'
-import { Search, Plus, ClipboardList } from 'lucide-react'
+import { exportToCSV, preparePedidosForCSV } from '../utils/csvExport'
+import { usePagination } from '../hooks/usePagination'
+import Pagination from '../components/Pagination'
+import { Search, Plus, ClipboardList, Download } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 const ESTADOS = ['todos', 'pendiente', 'entregado', 'cancelado']
 const BADGE = {
@@ -26,6 +30,17 @@ export default function Pedidos() {
   })
 
   const totalFiltrado = filtrados.reduce((s, p) => s + p.total, 0)
+  const { paginatedItems, ...pagination } = usePagination(filtrados, 50)
+
+  function exportarCSV() {
+    try {
+      const data = preparePedidosForCSV(filtrados)
+      exportToCSV(data, `pedidos-${new Date().toISOString().slice(0,10)}.csv`)
+      toast.success(`${filtrados.length} pedidos exportados a CSV`)
+    } catch (err) {
+      toast.error('Error al exportar: ' + err.message)
+    }
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -34,9 +49,14 @@ export default function Pedidos() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Historial de Pedidos</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{filtrados.length} pedido{filtrados.length !== 1 ? 's' : ''} · {formatCurrency(totalFiltrado)}</p>
         </div>
-        <button onClick={() => navigate('/pedidos/nuevo')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
-          <Plus size={16} /> Nuevo
-        </button>
+        <div className="flex gap-2">
+          <button onClick={exportarCSV} className="flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium px-4 py-2.5 rounded-xl transition-colors">
+            <Download size={16} /> Exportar CSV
+          </button>
+          <button onClick={() => navigate('/pedidos/nuevo')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
+            <Plus size={16} /> Nuevo
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-5">
@@ -68,7 +88,7 @@ export default function Pedidos() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtrados.map(p => (
+          {paginatedItems.map(p => (
             <div key={p.id} onClick={() => navigate(`/pedidos/${p.id}`)}
               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 cursor-pointer hover:shadow-sm hover:border-blue-200 dark:hover:border-blue-700 transition-all flex items-center gap-4">
               <div className="flex-1 min-w-0">
@@ -86,6 +106,8 @@ export default function Pedidos() {
           ))}
         </div>
       )}
+
+      {filtrados.length > 50 && <Pagination {...pagination} totalItems={filtrados.length} onNext={pagination.nextPage} onPrev={pagination.prevPage} />}
     </div>
   )
 }

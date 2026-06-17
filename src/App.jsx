@@ -18,6 +18,7 @@ import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
+import { Toaster } from 'react-hot-toast'
 
 function OnboardingGate({ children }) {
   const { state } = useApp()
@@ -80,6 +81,19 @@ export default function App() {
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: 'var(--toast-bg)',
+              color: 'var(--toast-color)',
+              border: '1px solid var(--toast-border)',
+            },
+            success: { duration: 3000, iconTheme: { primary: '#10b981', secondary: '#fff' } },
+            error: { duration: 5000, iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+          }}
+        />
       </AuthProvider>
     </ThemeProvider>
   )

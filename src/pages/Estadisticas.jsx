@@ -38,8 +38,11 @@ export default function Estadisticas() {
     pedidosEntregados.forEach(p => {
       p.items.forEach(i => {
         if (!map[i.nombre]) map[i.nombre] = { nombre: i.nombre, cantidad: 0, monto: 0 }
-        map[i.nombre].cantidad += i.cantidad
-        map[i.nombre].monto += i.cantidad * i.precioUnitario * (1 - i.descuento / 100)
+        const cantidad = Number(i.cantidad) || 0
+        const precio = Number(i.precioUnitario) || 0
+        const descuento = Number(i.descuento) || 0
+        map[i.nombre].cantidad += cantidad
+        map[i.nombre].monto += cantidad * precio * (1 - descuento / 100)
       })
     })
     return Object.values(map).sort((a,b) => b.monto - a.monto).slice(0, 5)

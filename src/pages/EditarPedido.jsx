@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { calcDescuento, calcTotales, formatCurrency, genId } from '../utils/helpers'
 import { Plus, Trash2, Search, ChevronDown, Save, Loader2, ArrowLeft } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function EditarPedido() {
   const { id } = useParams()
@@ -61,7 +62,40 @@ export default function EditarPedido() {
     const e = {}
     if (!clienteId) e.cliente = 'Seleccioná un cliente'
     if (items.length === 0) e.items = 'Agregá al menos un producto'
-    if (items.some(i => !i.nombre.trim() || i.cantidad < 1 || i.precioUnitario <= 0)) e.items = 'Completá todos los productos'
+
+    // Validar que todos los items tengan datos completos
+    for (const item of items) {
+      if (!item.nombre.trim()) {
+        e.items = 'Todos los productos deben tener nombre'
+        break
+      }
+      if (!item.cantidad || item.cantidad < 1) {
+        e.items = 'La cantidad debe ser mayor a 0'
+        break
+      }
+      if (!item.precioUnitario || item.precioUnitario <= 0) {
+        e.items = `El producto "${item.nombre}" debe tener un precio mayor a 0`
+        break
+      }
+    }
+
+    // Validar stock disponible (considerando lo que ya estaba en el pedido original)
+    if (!e.items) {
+      for (const item of items) {
+        if (item.productoId && item.productoId !== '__custom') {
+          const producto = state.productos.find(p => p.id === item.productoId)
+          const itemOriginal = pedido.items.find(i => i.productoId === item.productoId)
+          const cantidadOriginal = itemOriginal?.cantidad || 0
+          const delta = item.cantidad - cantidadOriginal
+
+          if (producto && delta > 0 && producto.stock < delta) {
+            e.items = `Stock insuficiente para ${item.nombre}. Disponible: ${producto.stock}, necesitas ${delta} adicionales`
+            break
+          }
+        }
+      }
+    }
+
     setErrors(e); return Object.keys(e).length === 0
   }
 
@@ -78,8 +112,12 @@ export default function EditarPedido() {
         items: items.map(i => ({ productoId: i.productoId !== '__custom' ? i.productoId : null, nombre: i.nombre, cantidad: Number(i.cantidad), precioUnitario: Number(i.precioUnitario), descuento: Number(i.descuento) })),
         ...totales, notas,
       })
+      toast.success('Pedido actualizado correctamente')
       navigate(`/pedidos/${pedido.id}`)
-    } catch (err) { setApiError(err.message); setSaving(false) }
+    } catch (err) {
+      toast.error(err.message)
+      setSaving(false)
+    }
   }
 
   const inp = (err) => `w-full px-2.5 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${err ? 'border-red-300' : 'border-gray-200 dark:border-gray-600'}`
@@ -133,16 +171,24 @@ export default function EditarPedido() {
           <div className="space-y-3">
             {items.map(item => {
               const subtotalItem = item.cantidad * item.precioUnitario * (1 - item.descuento / 100)
+              const producto = item.productoId && item.productoId !== '__custom' ? state.productos.find(p => p.id === item.productoId) : null
+              const itemOriginal = pedido.items.find(i => i.productoId === item.productoId)
+              const cantidadOriginal = itemOriginal?.cantidad || 0
+              const delta = item.cantidad - cantidadOriginal
+              const stockInsuficiente = producto && delta > 0 && producto.stock < delta
               return (
                 <div key={item.id} className="grid sm:grid-cols-12 gap-2 items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="sm:col-span-5">
                     <select value={item.productoId || ''} onChange={e => actualizarItem(item.id, 'productoId', e.target.value)} className={inp()}>
                       <option value="">-- Seleccionar --</option>
-                      {state.productos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                      {state.productos.map(p => <option key={p.id} value={p.id}>{p.nombre} {p.stock > 0 ? `(Stock: ${p.stock})` : '(Sin stock)'}</option>)}
                       <option value="__custom">+ Producto manual</option>
                     </select>
                     {(!item.productoId || item.productoId === '__custom') && (
                       <input value={item.nombre} onChange={e => actualizarItem(item.id, 'nombre', e.target.value)} placeholder="Nombre del producto" className={inp() + ' mt-1'} />
+                    )}
+                    {stockInsuficiente && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">⚠️ Stock insuficiente (disponible: {producto.stock}, necesitas {delta} más)</p>
                     )}
                   </div>
                   <div className="sm:col-span-2"><input type="number" min="1" value={item.cantidad} onChange={e => actualizarItem(item.id, 'cantidad', e.target.value)} className={inp() + ' text-center'} /></div>

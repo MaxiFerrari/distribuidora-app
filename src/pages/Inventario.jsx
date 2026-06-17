@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatCurrency } from '../utils/helpers'
-import { Plus, Pencil, Trash2, AlertTriangle, Package, X, Loader2 } from 'lucide-react'
+import { exportToCSV, prepareProductosForCSV } from '../utils/csvExport'
+import { usePagination } from '../hooks/usePagination'
+import Pagination from '../components/Pagination'
+import { Plus, Pencil, Trash2, AlertTriangle, Package, X, Loader2, Download } from 'lucide-react'
+import ConfirmModal from '../components/ConfirmModal'
+import toast from 'react-hot-toast'
 
 const EMPTY = { nombre: '', precio: '', unidad: 'unid', stock: '', stockMinimo: '12' }
 
@@ -12,8 +17,20 @@ export default function Inventario() {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [deleteModal, setDeleteModal] = useState(null)
 
   const stockBajo = state.productos.filter(p => p.stock <= p.stockMinimo)
+  const { paginatedItems, ...pagination } = usePagination(state.productos, 50)
+
+  // Calcular stock reservado (en pedidos pendientes que no están cancelados)
+  function calcularStockReservado(productoId) {
+    return state.pedidos
+      .filter(p => p.estado === 'pendiente')
+      .reduce((total, pedido) => {
+        const item = pedido.items.find(i => i.productoId === productoId)
+        return total + (item?.cantidad || 0)
+      }, 0)
+  }
 
   function abrirNuevo() { setForm(EMPTY); setErrors({}); setApiError(''); setModal({ mode: 'new' }) }
   function abrirEditar(p) { setForm({ ...p, precio: String(p.precio), stock: String(p.stock), stockMinimo: String(p.stockMinimo) }); setErrors({}); setApiError(''); setModal({ mode: 'edit' }) }
@@ -31,15 +48,44 @@ export default function Inventario() {
     setSaving(true); setApiError('')
     try {
       const data = { ...form, precio: Number(form.precio), stock: Number(form.stock), stockMinimo: Number(form.stockMinimo) }
-      modal.mode === 'new' ? await addProducto(data) : await updateProducto(data)
+      if (modal.mode === 'new') {
+        await addProducto(data)
+        toast.success('Producto agregado')
+      } else {
+        await updateProducto(data)
+        toast.success('Producto actualizado')
+      }
       setModal(null)
-    } catch (err) { setApiError(err.message) }
-    finally { setSaving(false) }
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  async function eliminar(id) {
-    if (!confirm('¿Eliminar este producto?')) return
-    try { await deleteProducto(id) } catch (err) { alert('Error: ' + err.message) }
+  function eliminar(id) {
+    const producto = state.productos.find(p => p.id === id)
+    setDeleteModal({ id, nombre: producto.nombre })
+  }
+
+  async function confirmarEliminar() {
+    try {
+      await deleteProducto(deleteModal.id)
+      toast.success('Producto eliminado')
+      setDeleteModal(null)
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  function exportarCSV() {
+    try {
+      const data = prepareProductosForCSV(state.productos)
+      exportToCSV(data, `productos-${new Date().toISOString().slice(0,10)}.csv`)
+      toast.success('Productos exportados a CSV')
+    } catch (err) {
+      toast.error('Error al exportar: ' + err.message)
+    }
   }
 
   if (state.loading) return <div className="flex items-center justify-center h-64"><Loader2 size={28} className="animate-spin text-blue-500" /></div>
@@ -51,9 +97,14 @@ export default function Inventario() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inventario</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{state.productos.length} productos</p>
         </div>
-        <button onClick={abrirNuevo} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
-          <Plus size={16} /> Agregar Producto
-        </button>
+        <div className="flex gap-2">
+          <button onClick={exportarCSV} className="flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium px-4 py-2.5 rounded-xl transition-colors">
+            <Download size={16} /> Exportar CSV
+          </button>
+          <button onClick={abrirNuevo} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
+            <Plus size={16} /> Agregar Producto
+          </button>
+        </div>
       </div>
 
       {stockBajo.length > 0 && (
@@ -70,24 +121,37 @@ export default function Inventario() {
       ) : (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
           <div className="hidden sm:grid grid-cols-12 gap-3 px-5 py-3 bg-gray-50 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
-            <div className="col-span-5">Producto</div>
+            <div className="col-span-4">Producto</div>
             <div className="col-span-2 text-right">Precio</div>
-            <div className="col-span-2 text-center">Stock</div>
-            <div className="col-span-2 text-center">Mínimo</div>
+            <div className="col-span-2 text-center">Stock Total</div>
+            <div className="col-span-1 text-center">Reserv.</div>
+            <div className="col-span-2 text-center">Disponible</div>
             <div className="col-span-1" />
           </div>
           <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
-            {state.productos.map(p => {
-              const bajo = p.stock <= p.stockMinimo
+            {paginatedItems.map(p => {
+              const reservado = calcularStockReservado(p.id)
+              const disponible = p.stock - reservado
+              const bajo = disponible <= p.stockMinimo
               return (
                 <div key={p.id} className={`sm:grid grid-cols-12 gap-3 px-5 py-4 items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${bajo ? 'bg-orange-50 dark:bg-orange-900/10 hover:bg-orange-50 dark:hover:bg-orange-900/20' : ''}`}>
-                  <div className="col-span-5 flex items-center gap-3 mb-2 sm:mb-0">
+                  <div className="col-span-4 flex items-center gap-3 mb-2 sm:mb-0">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${bajo ? 'bg-orange-400' : 'bg-green-400'}`} />
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">{p.nombre}</p>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">{p.nombre}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Mín: {p.stockMinimo}</p>
+                    </div>
                   </div>
                   <div className="col-span-2 text-right text-sm text-gray-700 dark:text-gray-300 font-medium">{formatCurrency(p.precio)}</div>
-                  <div className="col-span-2 text-center"><span className={`text-sm font-semibold ${bajo ? 'text-orange-600 dark:text-orange-400' : 'text-gray-900 dark:text-white'}`}>{p.stock} {p.unidad}</span></div>
-                  <div className="col-span-2 text-center text-sm text-gray-500 dark:text-gray-400">{p.stockMinimo} {p.unidad}</div>
+                  <div className="col-span-2 text-center"><span className="text-sm font-semibold text-gray-900 dark:text-white">{p.stock} {p.unidad}</span></div>
+                  <div className="col-span-1 text-center">
+                    {reservado > 0 ? (
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">{reservado}</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )}
+                  </div>
+                  <div className="col-span-2 text-center"><span className={`text-sm font-semibold ${bajo ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>{disponible} {p.unidad}</span></div>
                   <div className="col-span-1 flex gap-1 justify-end">
                     <button onClick={() => abrirEditar(p)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"><Pencil size={14} className="text-gray-500 dark:text-gray-400" /></button>
                     <button onClick={() => eliminar(p.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 size={14} className="text-red-400" /></button>
@@ -96,6 +160,7 @@ export default function Inventario() {
               )
             })}
           </div>
+          {state.productos.length > 50 && <Pagination {...pagination} totalItems={state.productos.length} onNext={pagination.nextPage} onPrev={pagination.prevPage} />}
         </div>
       )}
 
@@ -126,6 +191,15 @@ export default function Inventario() {
             </div>
           </div>
         </div>
+      )}
+      {deleteModal && (
+        <ConfirmModal
+          title="Eliminar producto"
+          message={`¿Estás seguro de eliminar ${deleteModal.nombre}? Esta acción no se puede deshacer.`}
+          confirmText="Eliminar"
+          onConfirm={confirmarEliminar}
+          onCancel={() => setDeleteModal(null)}
+        />
       )}
     </div>
   )

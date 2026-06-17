@@ -20,9 +20,10 @@ export default function ClienteDetalle() {
   const pedidos = state.pedidos.filter(p => p.clienteId === id).sort((a,b) => new Date(b.fecha) - new Date(a.fecha))
   const notasCredito = state.notasCredito.filter(n => n.clienteId === id)
 
-  const totalVentas = pedidos.filter(p => p.estado === 'entregado').reduce((s,p) => s + p.total, 0)
+  const totalVentas = pedidos.filter(p => p.estado !== 'cancelado').reduce((s,p) => s + p.total, 0)
+  const totalPagado = pedidos.filter(p => p.estado !== 'cancelado').reduce((s,p) => s + (p.montoPagado || 0), 0)
   const totalNotas = notasCredito.reduce((s,n) => s + n.monto, 0)
-  const saldoPendiente = pedidos.filter(p => p.estado === 'pendiente').reduce((s,p) => s + p.total, 0)
+  const saldoPendiente = totalVentas - totalPagado - totalNotas
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
@@ -64,17 +65,21 @@ export default function ClienteDetalle() {
       </div>
 
       {/* Resumen financiero */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-          <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(totalVentas)}</p>
+          <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(totalVentas)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total facturado</p>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-          <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">{formatCurrency(saldoPendiente)}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Pendiente</p>
+          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalPagado)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Pagado</p>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-          <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(totalNotas)}</p>
+          <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(saldoPendiente)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Saldo pendiente</p>
+        </div>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
+          <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{formatCurrency(totalNotas)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Notas crédito</p>
         </div>
       </div>

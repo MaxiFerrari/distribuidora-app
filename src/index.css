@@ -10,6 +10,15 @@ body {
   margin: 0;
   font-family: system-ui, -apple-system, sans-serif;
   background: #f8fafc;
+  --toast-bg: #fff;
+  --toast-color: #1f2937;
+  --toast-border: #e5e7eb;
+}
+
+body.dark {
+  --toast-bg: #1f2937;
+  --toast-color: #f9fafb;
+  --toast-border: #374151;
 }
 
 #root {

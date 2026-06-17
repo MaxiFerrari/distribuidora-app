@@ -62,9 +62,9 @@ export default function Layout() {
       {/* Sidebar desktop */}
       <aside className={`hidden md:flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shrink-0 transition-all duration-300 ${collapsed ? 'w-16' : 'w-56'}`}>
         {/* Header */}
-        <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${collapsed ? 'p-3 justify-center' : 'p-4 justify-between'}`}>
+        <div className={`border-b border-gray-200 dark:border-gray-700 flex items-center ${collapsed ? 'p-3 flex-col gap-2' : 'p-4 justify-between'}`}>
           {!collapsed && (
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
                 <ShoppingCart size={16} className="text-white" />
               </div>
@@ -79,6 +79,11 @@ export default function Layout() {
               <ShoppingCart size={16} className="text-white" />
             </div>
           )}
+          {/* Toggle collapse button */}
+          <button onClick={toggleCollapse} title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
+            className={`shrink-0 flex items-center justify-center p-1.5 text-gray-400 dark:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors ${collapsed ? 'w-full' : ''}`}>
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
         </div>
 
         {/* Search button */}
@@ -123,12 +128,6 @@ export default function Layout() {
               Un producto de <span className="font-semibold text-gray-500 dark:text-gray-500">BotHub</span>
             </p>
           )}
-
-          {/* Toggle collapse button */}
-          <button onClick={toggleCollapse} title={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-            className={`w-full flex items-center py-2 text-xs text-gray-400 dark:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors ${collapsed ? 'justify-center px-2' : 'gap-2 px-3'}`}>
-            {collapsed ? <ChevronRight size={15} /> : <><ChevronLeft size={15} /><span>Colapsar</span></>}
-          </button>
         </div>
       </aside>
 
