@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aplicación web MVP para gestionar pedidos, clientes e inventario en distribuidoras de bebidas y alimentos de Tucumán. Incluye autenticación, gestión de clientes/productos/pedidos, exportación PDF, escáner de códigos de barras, estadísticas, notas de crédito, modo oscuro y PWA.
+Aplicación web MVP para gestionar pedidos, clientes e inventario en distribuidoras de bebidas y alimentos de Tucumán. Incluye autenticación, gestión de clientes/productos/pedidos, exportación PDF, escáner de códigos de barras, estadísticas, notas de crédito, modo oscuro, PWA, y **sistema multi-tenant** que permite administrar múltiples distribuidoras con datos aislados.
 
 ## Commands
 
@@ -30,18 +30,20 @@ npm run lint       # Run ESLint
 
 ## Architecture
 
-### Context Providers (3-layer hierarchy)
+### Context Providers (4-layer hierarchy)
 
 The app uses a nested context structure in [App.jsx](src/App.jsx):
 
 ```
 ThemeProvider (outermost)
   └─ AuthProvider
-      └─ AppProvider (only mounted when authenticated)
+      └─ DistribuidoraProvider
+          └─ AppProvider (only mounted when authenticated)
 ```
 
 - **ThemeProvider** ([ThemeContext.jsx](src/context/ThemeContext.jsx)): Manages dark mode, persists to localStorage
 - **AuthProvider** ([AuthContext.jsx](src/context/AuthContext.jsx)): Supabase auth session, provides `user`, `signIn`, `signUp`, `signOut`
+- **DistribuidoraProvider** ([DistribuidoraContext.jsx](src/context/DistribuidoraContext.jsx)): Multi-tenant context, provides `distribuidora`, `usuarioApp`, `isSuperAdmin`, `isOwner`, `isEmpleado`
 - **AppProvider** ([AppContext.jsx](src/context/AppContext.jsx)): Core business data (clientes, productos, pedidos, notasCredito) with CRUD operations. Uses `useReducer` for state. All data fetched from Supabase on mount and kept in sync via dispatch actions.
 
 ### Data Flow
@@ -118,19 +120,28 @@ Main routes:
 - `/pedidos/:id/editar` → Edit order
 - `/inventario` → Product inventory
 - `/estadisticas` → Sales charts
+- `/admin` → Admin panel (only visible to super_admin)
 
 ### Supabase Schema
 
 Defined in [supabase.js](src/lib/supabase.js). Tables:
-- `clientes` (customers)
-- `productos` (products)
-- `pedidos` (orders) → has many `pedido_items`
-  - New fields (2026-06-17): `estado_pago`, `monto_pagado`, `fecha_pago`, `metodo_pago`
-- `pedido_items` (order line items)
-- `notas_credito` (credit notes)
-- `stock_movements` (stock audit trail) - tracks all stock changes with reason and pedido_id
 
-All tables have RLS enabled and are scoped by `user_id`.
+**Multi-Tenant Tables:**
+
+- `distribuidoras` (your clients - each with custom name)
+- `usuarios_app` (app users with roles: super_admin, owner, empleado)
+
+**Business Data Tables:**
+
+- `clientes` (customers) → has `distribuidora_id`
+- `productos` (products) → has `distribuidora_id`
+- `pedidos` (orders) → has many `pedido_items`, has `distribuidora_id`
+  - Payment fields: `estado_pago`, `monto_pagado`, `fecha_pago`, `metodo_pago`
+- `pedido_items` (order line items)
+- `notas_credito` (credit notes) → has `distribuidora_id`
+- `stock_movements` (stock audit trail) → has `distribuidora_id`
+
+All tables have RLS enabled and are scoped by `distribuidora_id` (via `get_user_distribuidora_id()` function).
 
 **SQL Functions** (see [migration-stock-y-pagos.sql](migration-stock-y-pagos.sql)):
 - `deducir_stock(user_id, producto_id, cantidad, pedido_id, razon)` - deducts stock and logs movement
@@ -206,6 +217,20 @@ Configured in [vite.config.js](vite.config.js):
 - Dashboard KPI "Por Cobrar" shows total outstanding payments
 - ClienteDetalle shows: Total facturado | Pagado | Saldo pendiente | Notas crédito
 
-**Migration Required:**
+**Multi-Tenant System:**
 
-Run [migration-stock-y-pagos.sql](migration-stock-y-pagos.sql) in Supabase SQL Editor before deploying these changes.
+- New tables: `distribuidoras`, `usuarios_app` with roles (super_admin, owner, empleado)
+- All business tables now have `distribuidora_id` column
+- RLS policies updated to filter by distribuidora instead of user
+- Employees of same distribuidora share all data
+- Admin panel at `/admin` (only super_admin can access)
+- Distribuidora name shows in sidebar instead of generic "Distribuidora"
+- Context: `DistribuidoraProvider` provides `distribuidora`, `usuarioApp`, role flags
+
+**Migrations Required:**
+
+1. Run [migration-stock-y-pagos.sql](migration-stock-y-pagos.sql) first
+2. Run [migration-multi-tenant.sql](migration-multi-tenant.sql) - **IMPORTANT:** Edit PARTE 6 to set your super_admin email
+3. Run [migration-auto-create-usuario-app.sql](migration-auto-create-usuario-app.sql) (optional, for auto-creating users)
+
+See [MULTI-TENANT-SETUP.md](MULTI-TENANT-SETUP.md) for detailed setup instructions.
