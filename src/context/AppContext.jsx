@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
+import { useDistribuidora } from './DistribuidoraContext'
 
 const AppContext = createContext(null)
 
@@ -72,6 +73,7 @@ function normalizeNota(row) {
 
 export function AppProvider({ children }) {
   const { user } = useAuth()
+  const { distribuidora } = useDistribuidora()
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
 
   const loadData = useCallback(async () => {
@@ -110,7 +112,8 @@ export function AppProvider({ children }) {
         zona: data.zona,
         notas: data.notas,
         descuento_general: data.descuentoGeneral || 0,
-        user_id: user.id
+        user_id: user.id,
+        distribuidora_id: distribuidora?.id
       })
       .select().single()
     if (error) throw error
@@ -152,7 +155,7 @@ export function AppProvider({ children }) {
   // PRODUCTOS
   async function addProducto(data) {
     const { data: row, error } = await supabase.from('productos')
-      .insert({ nombre: data.nombre, precio: data.precio, unidad: data.unidad, stock: data.stock, stock_minimo: data.stockMinimo, user_id: user.id })
+      .insert({ nombre: data.nombre, precio: data.precio, unidad: data.unidad, stock: data.stock, stock_minimo: data.stockMinimo, user_id: user.id, distribuidora_id: distribuidora?.id })
       .select().single()
     if (error) throw error
     dispatch({ type: 'ADD_PRODUCTO', payload: normalizeProducto(row) })
@@ -201,6 +204,7 @@ export function AppProvider({ children }) {
         cliente_telefono: data.clienteTelefono || '', fecha: data.fecha, estado: data.estado,
         estado_pago: 'pendiente', monto_pagado: 0,
         subtotal: data.subtotal, descuento_total: data.descuentoTotal, total: data.total, notas: data.notas || '',
+        distribuidora_id: distribuidora?.id
       }).select().single()
     if (pedidoError) throw pedidoError
 
@@ -413,7 +417,8 @@ export function AppProvider({ children }) {
     const { data: row, error } = await supabase.from('notas_credito')
       .insert({ user_id: user.id, pedido_id: data.pedidoId || null, cliente_id: data.clienteId || null,
         cliente_nombre: data.clienteNombre, fecha: new Date().toISOString(),
-        motivo: data.motivo, monto: data.monto, notas: data.notas || '' })
+        motivo: data.motivo, monto: data.monto, notas: data.notas || '',
+        distribuidora_id: distribuidora?.id })
       .select().single()
     if (error) throw error
     dispatch({ type: 'ADD_NOTA', payload: normalizeNota(row) }); return row

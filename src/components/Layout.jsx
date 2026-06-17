@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Users, ShoppingCart, ClipboardList, Package, Menu, X, LogOut, Sun, Moon, Search, BarChart2, ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useDistribuidora } from '../context/DistribuidoraContext'
 import BusquedaGlobal from './BusquedaGlobal'
 
 const NAV = [
@@ -42,6 +43,7 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
   const { user, signOut } = useAuth()
   const { dark, toggle } = useTheme()
+  const { distribuidora, isSuperAdmin } = useDistribuidora()
 
   useEffect(() => {
     function onKey(e) {
@@ -69,7 +71,7 @@ export default function Layout() {
                 <ShoppingCart size={16} className="text-white" />
               </div>
               <div className="min-w-0">
-                <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">Distribuidora</p>
+                <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">{distribuidora?.nombre || 'Distribuidora'}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]">{user?.email}</p>
               </div>
             </div>
@@ -109,6 +111,12 @@ export default function Layout() {
         {/* Nav */}
         <nav className={`flex-1 p-2 space-y-1`}>
           {NAV.map(props => <NavItem key={props.to} {...props} collapsed={collapsed} />)}
+          {isSuperAdmin && (
+            <>
+              <div className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
+              <NavItem to="/admin" label="Admin Panel" icon={Settings} collapsed={collapsed} />
+            </>
+          )}
         </nav>
 
         {/* Footer */}

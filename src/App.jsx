@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { DistribuidoraProvider } from './context/DistribuidoraContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -16,6 +17,7 @@ import Estadisticas from './pages/Estadisticas'
 import Onboarding from './pages/Onboarding'
 import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
+import Admin from './pages/Admin'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
@@ -39,9 +41,10 @@ function ProtectedRoutes() {
   if (loading) return <Spinner />
   if (!user) return <Navigate to="/login" replace />
   return (
-    <AppProvider>
-      <Routes>
-        <Route path="/" element={<Layout />}>
+    <DistribuidoraProvider>
+      <AppProvider>
+        <Routes>
+          <Route path="/" element={<Layout />}>
           <Route index element={<OnboardingGate><Dashboard /></OnboardingGate>} />
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="clientes" element={<Clientes />} />
@@ -52,10 +55,12 @@ function ProtectedRoutes() {
           <Route path="pedidos/:id/editar" element={<EditarPedido />} />
           <Route path="inventario" element={<Inventario />} />
           <Route path="estadisticas" element={<Estadisticas />} />
+          <Route path="admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Route>
-      </Routes>
-    </AppProvider>
+        </Routes>
+      </AppProvider>
+    </DistribuidoraProvider>
   )
 }
 
