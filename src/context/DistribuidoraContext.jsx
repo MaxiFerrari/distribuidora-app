@@ -23,20 +23,38 @@ export function DistribuidoraProvider({ children }) {
 
   async function loadDistribuidoraData() {
     try {
-      // Obtener usuario_app con su distribuidora
+      // Obtener usuario_app
       const { data: usuarioData, error: usuarioError } = await supabase
         .from('usuarios_app')
-        .select(`
-          *,
-          distribuidora:distribuidoras(*)
-        `)
+        .select('*')
         .eq('auth_user_id', user.id)
         .single()
 
       if (usuarioError) throw usuarioError
 
+      // Verificar si el usuario está activo
+      if (!usuarioData.activo) {
+        console.warn('Usuario inactivo. Contacta al administrador.')
+      }
+
       setUsuarioApp(usuarioData)
-      setDistribuidora(usuarioData.distribuidora)
+
+      // Si tiene distribuidora_id, cargarla
+      if (usuarioData.distribuidora_id) {
+        const { data: distData, error: distError } = await supabase
+          .from('distribuidoras')
+          .select('*')
+          .eq('id', usuarioData.distribuidora_id)
+          .single()
+
+        if (distError) {
+          console.error('Error cargando distribuidora:', distError)
+        } else {
+          setDistribuidora(distData)
+        }
+      } else {
+        setDistribuidora(null)
+      }
     } catch (error) {
       console.error('Error cargando distribuidora:', error)
     } finally {

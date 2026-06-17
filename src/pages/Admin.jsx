@@ -45,11 +45,18 @@ export default function Admin() {
 
   async function loadUsuarios(distribuidoraId) {
     try {
-      const { data, error } = await supabase
+      // Si distribuidoraId es null, mostrar TODOS los usuarios
+      // Si hay distribuidoraId, mostrar usuarios de esa distribuidora + usuarios sin asignar
+      let query = supabase
         .from('usuarios_app')
         .select('*')
-        .or(distribuidoraId ? `distribuidora_id.eq.${distribuidoraId},distribuidora_id.is.null` : 'distribuidora_id.is.null')
         .order('created_at', { ascending: false })
+
+      if (distribuidoraId) {
+        query = query.or(`distribuidora_id.eq.${distribuidoraId},distribuidora_id.is.null`)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setUsuarios(data)
@@ -158,7 +165,8 @@ export default function Admin() {
           .update({
             nombre_completo: formUser.nombre_completo,
             rol: formUser.rol,
-            distribuidora_id: formUser.distribuidora_id
+            distribuidora_id: formUser.distribuidora_id,
+            activo: formUser.activo
           })
           .eq('id', formUser.id)
 
@@ -187,10 +195,16 @@ export default function Admin() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Panel de Administración</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">{distribuidoras.length} distribuidoras registradas</p>
         </div>
-        <button onClick={() => { setFormDist(EMPTY_DIST); setModalDist({ mode: 'new' }) }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
-          <Plus size={16} /> Nueva Distribuidora
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => { setSelectedDist(null); loadUsuarios(null) }}
+            className="flex items-center gap-2 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium px-4 py-2.5 rounded-xl transition-colors">
+            <Users size={16} /> Todos los Usuarios
+          </button>
+          <button onClick={() => { setFormDist(EMPTY_DIST); setModalDist({ mode: 'new' }) }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow transition-colors">
+            <Plus size={16} /> Nueva Distribuidora
+          </button>
+        </div>
       </div>
 
       {distribuidoras.length === 0 ? (
@@ -288,16 +302,19 @@ export default function Admin() {
       )}
 
       {/* Modal Usuarios */}
-      {selectedDist && (
+      {selectedDist !== null && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 shrink-0">
-              <h2 className="font-bold text-gray-900 dark:text-white">Usuarios</h2>
+              <div>
+                <h2 className="font-bold text-gray-900 dark:text-white">
+                  {selectedDist === null ? 'Todos los Usuarios' : `Usuarios${selectedDist ? ` - ${distribuidoras.find(d => d.id === selectedDist)?.nombre}` : ''}`}
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {selectedDist === null ? 'Todos los usuarios registrados' : 'Usuarios de esta distribuidora + sin asignar'}
+                </p>
+              </div>
               <div className="flex gap-2">
-                <button onClick={() => { setFormUser(EMPTY_USER); setModalUser({ mode: 'new' }) }}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg">
-                  <Plus size={14} /> Nuevo Usuario
-                </button>
                 <button onClick={() => { setSelectedDist(null); setUsuarios([]) }} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                   <X size={18} className="text-gray-500 dark:text-gray-400" />
                 </button>
@@ -311,19 +328,32 @@ export default function Admin() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {usuarios.map(u => (
-                    <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{u.nombre_completo}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
-                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full mt-1 inline-block">{u.rol}</span>
+                  {usuarios.map(u => {
+                    const dist = distribuidoras.find(d => d.id === u.distribuidora_id)
+                    return (
+                      <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{u.nombre_completo}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded-full">{u.rol}</span>
+                            {dist ? (
+                              <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">{dist.nombre}</span>
+                            ) : (
+                              <span className="text-xs bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Sin asignar</span>
+                            )}
+                            {!u.activo && (
+                              <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full">Inactivo</span>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => { setFormUser(u); setModalUser({ mode: 'edit' }) }}
+                          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg">
+                          <Pencil size={14} className="text-gray-500 dark:text-gray-400" />
+                        </button>
                       </div>
-                      <button onClick={() => { setFormUser(u); setModalUser({ mode: 'edit' }) }}
-                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg">
-                        <Pencil size={14} className="text-gray-500 dark:text-gray-400" />
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -375,6 +405,14 @@ export default function Admin() {
                   <option value="super_admin">Super Admin</option>
                 </select>
               </Field>
+              {modalUser.mode === 'edit' && (
+                <Field label="Estado">
+                  <select value={formUser.activo ? 'true' : 'false'} onChange={e => setFormUser(f => ({ ...f, activo: e.target.value === 'true' }))} className={inp()}>
+                    <option value="true">Activo</option>
+                    <option value="false">Inactivo</option>
+                  </select>
+                </Field>
+              )}
             </div>
             <div className="flex gap-3 p-5 pt-0">
               <button onClick={() => setModalUser(null)} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>

@@ -71,8 +71,10 @@ export default function Layout() {
                 <ShoppingCart size={16} className="text-white" />
               </div>
               <div className="min-w-0">
-                <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">{distribuidora?.nombre || 'Distribuidora'}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[100px]">{user?.email}</p>
+                <p className="font-bold text-gray-900 dark:text-white text-base leading-tight">
+                  {isSuperAdmin ? 'Panel Admin' : (distribuidora?.nombre || 'Sin asignar')}
+                </p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[140px] mt-0.5">{user?.email}</p>
               </div>
             </div>
           )}
