@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { ShoppingCart, Loader2 } from 'lucide-react'
 
 export default function Login() {
@@ -34,6 +35,25 @@ export default function Login() {
     }
   }
 
+  async function handleResetPassword(e) {
+    e.preventDefault()
+    if (!email) { setError('Ingresá tu email para recuperar la contraseña.'); return }
+    setLoading(true); setError(''); setSuccess('')
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      setSuccess('Te enviamos un email con el link para resetear tu contraseña.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const inp = 'w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -42,39 +62,51 @@ export default function Login() {
             <ShoppingCart size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Distribuidora</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Gestor de Pedidos · Tucumán</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Gestor de Pedidos · BotHub</p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-7">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-5">
-            {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+            {mode === 'login' ? 'Iniciar sesión' : mode === 'register' ? 'Crear cuenta' : 'Recuperar contraseña'}
           </h2>
 
           {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400">{error}</div>}
           {success && <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl text-sm text-green-700 dark:text-green-400">{success}</div>}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={mode === 'forgot' ? handleResetPassword : handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com"
-                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" className={inp} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
-              <input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres"
-                className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+            {mode !== 'forgot' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contraseña</label>
+                <input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className={inp} />
+              </div>
+            )}
             <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-3 rounded-xl transition-colors mt-2">
               {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === 'login' ? 'Entrar' : 'Crear cuenta'}
+              {mode === 'login' ? 'Entrar' : mode === 'register' ? 'Crear cuenta' : 'Enviar link de recuperación'}
             </button>
           </form>
 
-          <div className="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
-            {mode === 'login' ? (
-              <>¿No tenés cuenta?{' '}<button onClick={() => { setMode('register'); setError('') }} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Registrate</button></>
-            ) : (
-              <>¿Ya tenés cuenta?{' '}<button onClick={() => { setMode('login'); setError('') }} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Iniciá sesión</button></>
+          <div className="mt-5 space-y-2 text-center text-sm text-gray-500 dark:text-gray-400">
+            {mode === 'login' && (
+              <>
+                <div>
+                  ¿No tenés cuenta?{' '}
+                  <button onClick={() => { setMode('register'); setError(''); setSuccess('') }} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Registrate</button>
+                </div>
+                <div>
+                  <button onClick={() => { setMode('forgot'); setError(''); setSuccess('') }} className="text-gray-400 dark:text-gray-500 hover:underline text-xs">¿Olvidaste tu contraseña?</button>
+                </div>
+              </>
+            )}
+            {mode === 'register' && (
+              <div>¿Ya tenés cuenta?{' '}<button onClick={() => { setMode('login'); setError(''); setSuccess('') }} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Iniciá sesión</button></div>
+            )}
+            {mode === 'forgot' && (
+              <div><button onClick={() => { setMode('login'); setError(''); setSuccess('') }} className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Volver al login</button></div>
             )}
           </div>
         </div>

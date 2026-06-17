@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { calcDescuento, calcTotales, formatCurrency, genId } from '../utils/helpers'
 import { exportPedidoPDF } from '../utils/pdfExport'
-import { Plus, Trash2, Search, ChevronDown, FileText, Save, Loader2 } from 'lucide-react'
+import EscanerBarras from '../components/EscanerBarras'
+import { Plus, Trash2, Search, ChevronDown, FileText, Save, Loader2, ScanBarcode } from 'lucide-react'
 
 export default function NuevoPedido() {
   const { state, addPedido } = useApp()
@@ -17,6 +18,7 @@ export default function NuevoPedido() {
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [escaner, setEscaner] = useState(false)
 
   const clienteSeleccionado = state.clientes.find(c => c.id === clienteId)
   const clientesFiltrados = state.clientes.filter(c => c.nombre.toLowerCase().includes(busqCliente.toLowerCase()))
@@ -41,6 +43,21 @@ export default function NuevoPedido() {
   }
 
   function eliminarItem(id) { setItems(prev => prev.filter(i => i.id !== id)) }
+
+  function onScanBarcode(codigo) {
+    setEscaner(false)
+    const prod = state.productos.find(p => p.codigo === codigo || p.nombre === codigo)
+    if (prod) {
+      const existente = items.find(i => i.productoId === prod.id)
+      if (existente) {
+        actualizarItem(existente.id, 'cantidad', existente.cantidad + 1)
+      } else {
+        setItems(prev => [...prev, { id: genId(), productoId: prod.id, nombre: prod.nombre, cantidad: 1, precioUnitario: prod.precio, descuento: 0 }])
+      }
+    } else {
+      setItems(prev => [...prev, { id: genId(), productoId: '__custom', nombre: codigo, cantidad: 1, precioUnitario: 0, descuento: 0 }])
+    }
+  }
 
   const totales = calcTotales(items)
 
@@ -71,6 +88,7 @@ export default function NuevoPedido() {
   const inp = (err) => `w-full px-2.5 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${err ? 'border-red-300' : 'border-gray-200 dark:border-gray-600'}`
 
   return (
+    <>
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nuevo Pedido</h1>
@@ -112,9 +130,14 @@ export default function NuevoPedido() {
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 dark:text-white">Productos</h2>
-            <button onClick={agregarItem} className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg transition-colors">
-              <Plus size={15} /> Agregar
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setEscaner(true)} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-1.5 rounded-lg transition-colors">
+                <ScanBarcode size={15} /> Escanear
+              </button>
+              <button onClick={agregarItem} className="flex items-center gap-1.5 text-sm text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg transition-colors">
+                <Plus size={15} /> Agregar
+              </button>
+            </div>
           </div>
 
           {errors.items && <p className="text-xs text-red-500 mb-3">{errors.items}</p>}
@@ -190,5 +213,7 @@ export default function NuevoPedido() {
         </div>
       </div>
     </div>
+    {escaner && <EscanerBarras onScan={onScanBarcode} onClose={() => setEscaner(false)} />}
+    </>
   )
 }

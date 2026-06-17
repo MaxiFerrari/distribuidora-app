@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { AppProvider } from './context/AppContext'
+import { AppProvider, useApp } from './context/AppContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -13,7 +13,25 @@ import DetallePedido from './pages/DetallePedido'
 import EditarPedido from './pages/EditarPedido'
 import Inventario from './pages/Inventario'
 import Estadisticas from './pages/Estadisticas'
+import Onboarding from './pages/Onboarding'
+import ResetPassword from './pages/ResetPassword'
+import NotFound from './pages/NotFound'
 import { Loader2 } from 'lucide-react'
+import { useEffect } from 'react'
+
+function OnboardingGate({ children }) {
+  const { state } = useApp()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (state.loading) return
+    const done = localStorage.getItem('onboarding-done')
+    const vacio = state.clientes.length === 0 && state.productos.length === 0 && state.pedidos.length === 0
+    if (!done && vacio) navigate('/onboarding')
+  }, [state.loading])
+
+  return children
+}
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth()
@@ -23,7 +41,8 @@ function ProtectedRoutes() {
     <AppProvider>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<OnboardingGate><Dashboard /></OnboardingGate>} />
+          <Route path="onboarding" element={<Onboarding />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="clientes/:id" element={<ClienteDetalle />} />
           <Route path="pedidos" element={<Pedidos />} />
@@ -32,6 +51,7 @@ function ProtectedRoutes() {
           <Route path="pedidos/:id/editar" element={<EditarPedido />} />
           <Route path="inventario" element={<Inventario />} />
           <Route path="estadisticas" element={<Estadisticas />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </AppProvider>
@@ -56,6 +76,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<PublicRoute />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>
